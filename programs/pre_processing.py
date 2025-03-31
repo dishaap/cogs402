@@ -1,47 +1,56 @@
 from langdetect import detect, DetectorFactory, LangDetectException
-import numpy as np
 import re
 import unicodedata as ud
 
+# Fix randomness in langdetect
+DetectorFactory.seed = 0  
+
 def preprocess_text(text):
-    # Normalize Unicode
+    """Normalize Unicode and remove unwanted characters."""
     text = ud.normalize('NFKC', text)
-    # Remove URLs, emails, and special characters
-    text = re.sub(r'http\S+|www\S+|\S+@\S+', '', text)  # Remove links and emails
+    text = re.sub(r'http\S+|www\S+|\S+@\S+', '', text)  # Remove URLs and emails
     text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation and symbols
     return text.strip()
 
 def tokenize_words(text):
     return text.split()
 
-def is_mixed_language(text):
+def filter_words(text, line_num, total_lines, lang):
     clean_text = preprocess_text(text)
     words = tokenize_words(clean_text)
-    non_kn_count, kn_count = 0, 0
-    
+    kannada_words = []
+
     for word in words:
         try:
-            lang = detect(word)
-            if lang != 'kn':
-                non_kn_count += 1
-            else:
-                kn_count += 1
+            if detect(word) == lang:  # Keep only words of language
+                kannada_words.append(word)
         except LangDetectException:
             continue  # Skip words that can't be detected
-    
-    return non_kn_count > 0 and kn_count > 0  # True if both English and another language are pr
+
+    if line_num % 1000 == 0 or line_num == total_lines:  # Print progress every 1000 lines
+        print(f"Processed {line_num}/{total_lines} lines...")
+
+    return ' '.join(kannada_words)  # Return the filtered sentence
 
 def read_file(file_path):
+    print(f"Reading file: {file_path}")
     with open(file_path, 'r', encoding='utf-8') as f:
-        return [line.strip() for line in f.readlines()]
+        lines = [line.strip() for line in f.readlines()]
+    print(f"Finished reading {len(lines)} lines.")
+    return lines
 
-file_path = '../data/kn-ta/MultiHPLT.kn.txt'  # Change to the actual file path
-corpus = read_file(file_path)
-mixed = np.zeros(len(corpus))
+def preprocess_corpus(input_file, output_file, lang):
+    """Process corpus and save a new file with only Kannada words."""
+    corpus = read_file(input_file)
+    total_lines = len(corpus)
 
-# Detect mixed-language lines
-for line in corpus:
-    if is_mixed_language(line):
-        mixed[corpus.index(line)] = 1
+    print("Starting text processing...")
+    cleaned_corpus = [filter_words(line, i+1, total_lines, lang) for i, line in enumerate(corpus)]
 
-print(mixed)
+    print(f"Saving cleaned corpus to {output_file}...")
+    with open(output_file, 'w', encoding='utf-8') as f:
+        for line in cleaned_corpus:
+            if line.strip():  # Avoid empty lines
+                f.write(line + '\n')
+
+    print(f"Processing complete! Cleaned corpus saved to {output_file}")
