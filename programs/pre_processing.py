@@ -7,15 +7,17 @@ DetectorFactory.seed = 0
 
 def preprocess_text(text):
     """Normalize Unicode and remove unwanted characters."""
-    text = ud.normalize('NFKC', text)
+    text = ud.normalize('NFKD', text)
     text = re.sub(r'http\S+|www\S+|\S+@\S+', '', text)  # Remove URLs and emails
-    text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation and symbols
+
+    """This removes vowel symbols so commented out for now."""
+    # text = re.sub(r'\?', '', text)  # Remove punctuation and symbols
     return text.strip()
 
 def tokenize_words(text):
     return text.split()
 
-def filter_words(text, line_num, total_lines, lang):
+def filter_words(text, lang):
     clean_text = preprocess_text(text)
     words = tokenize_words(clean_text)
     kannada_words = []
@@ -27,10 +29,7 @@ def filter_words(text, line_num, total_lines, lang):
         except LangDetectException:
             continue  # Skip words that can't be detected
 
-    if line_num % 1000 == 0 or line_num == total_lines:  # Print progress every 1000 lines
-        print(f"Processed {line_num}/{total_lines} lines...")
-
-    return ' '.join(kannada_words)  # Return the filtered sentence
+    return ' '.join(kannada_words) # Return the filtered sentence
 
 def read_file(file_path):
     print(f"Reading file: {file_path}")
@@ -41,16 +40,22 @@ def read_file(file_path):
 
 def preprocess_corpus(input_file, output_file, lang):
     """Process corpus and save a new file with only Kannada words."""
-    corpus = read_file(input_file)
-    total_lines = len(corpus)
+    with open(input_file, 'r', encoding='utf-8') as infile, open(output_file, 'w', encoding='utf-8') as outfile:
+        total_lines = sum(1 for _ in infile)  # Count total lines
+        infile.seek(0)  # Reset file pointer to beginning
 
-    print("Starting text processing...")
-    cleaned_corpus = [filter_words(line, i+1, total_lines, lang) for i, line in enumerate(corpus)]
+        for i, line in enumerate(infile, 1):
+            cleaned_line = filter_words(line, lang)
+            if cleaned_line.strip():  # Avoid writing empty lines
+                outfile.write(cleaned_line + '\n')
 
-    print(f"Saving cleaned corpus to {output_file}...")
-    with open(output_file, 'w', encoding='utf-8') as f:
-        for line in cleaned_corpus:
-            if line.strip():  # Avoid empty lines
-                f.write(line + '\n')
+            if i % 1000 == 0 or i == total_lines:  # Show progress every 1000 lines
+                print(f"Processed {i}/{total_lines} lines...")
 
     print(f"Processing complete! Cleaned corpus saved to {output_file}")
+
+
+"""Test"""
+# input_file = "../data/test_kn.kn"
+# output_file = "../data/test_cleaned_kn.kn"
+# preprocess_corpus(input_file, output_file, 'kn')
