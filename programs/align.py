@@ -66,4 +66,4 @@ tn_ka = load_corpus(post_knta_ta, post_knta_kn)  # Tamil-Kannada
 
 common_data = find_common_sentences(en_ka, tn_ka)
 
-save_common_sentences(common_data, "common_sentences.txt")
+save_common_sentences(common_data, "../data/common_sentences.txt")
